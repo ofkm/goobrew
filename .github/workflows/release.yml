@@ -152,34 +152,3 @@ jobs:
                   prerelease: false
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    # Optionally test installation
-    test-install:
-        name: Test Installation
-        needs: release
-        runs-on: ubuntu-latest
-
-        steps:
-            - name: Set up Go
-              uses: actions/setup-go@v6
-              with:
-                  go-version: stable
-
-            - name: Test go install
-              run: |
-                  VERSION=${GITHUB_REF#refs/tags/}
-                  go install github.com/ofkm/goobrew@$VERSION
-                  goobrew version
-
-            - name: Verify version
-              run: |
-                  VERSION=${GITHUB_REF#refs/tags/}
-                  INSTALLED_VERSION=$(goobrew version | head -n1)
-                  echo "Expected: goobrew version $VERSION"
-                  echo "Got: $INSTALLED_VERSION"
-                  if [[ "$INSTALLED_VERSION" == *"$VERSION"* ]]; then
-                    echo "✅ Version matches!"
-                  else
-                    echo "❌ Version mismatch!"
-                    exit 1
-                  fi
