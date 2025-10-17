@@ -5,8 +5,9 @@ This document explains how to create and publish releases for goobrew.
 ## Versioning
 
 goobrew follows [Semantic Versioning](https://semver.org/):
+
 - MAJOR version for incompatible API changes
-- MINOR version for new functionality in a backwards compatible manner  
+- MINOR version for new functionality in a backwards compatible manner
 - PATCH version for backwards compatible bug fixes
 
 ## Creating a Release
@@ -14,6 +15,7 @@ goobrew follows [Semantic Versioning](https://semver.org/):
 ### 1. Prepare the Release
 
 1. Ensure all tests pass:
+
    ```bash
    make test
    make lint
@@ -30,6 +32,7 @@ goobrew follows [Semantic Versioning](https://semver.org/):
 ### 2. Create and Push the Tag
 
 1. Create a git tag following the format `vX.Y.Z`:
+
    ```bash
    git tag -a v0.1.0 -m "Release v0.1.0"
    ```
@@ -71,6 +74,7 @@ make install        # Install to $GOPATH/bin
 ```
 
 The Makefile automatically:
+
 - Extracts version from git tags
 - Includes the git commit hash
 - Adds the build timestamp
@@ -118,6 +122,7 @@ git push origin v0.2.1
 ### `go install` says "no matching versions"
 
 Make sure:
+
 1. The tag is pushed to GitHub: `git push origin vX.Y.Z`
 2. The tag follows semantic versioning format: `vX.Y.Z`
 3. Wait a minute for Go's proxy cache to update: https://proxy.golang.org/github.com/ofkm/goobrew/@v/list
@@ -125,6 +130,7 @@ Make sure:
 ### Version shows as "dev"
 
 If you build without using `make` or `go install`, the version will show as "dev". Use:
+
 ```bash
 make build    # For local builds with version info
 make install  # To install with version info
