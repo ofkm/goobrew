@@ -3,7 +3,7 @@ package version
 // Version information set via ldflags during build
 var (
 	// Version is the semantic version
-	Version = "dev"
+	Version = "0.1.0"
 	// Commit is the git commit hash
 	Commit = "none"
 	// BuildTime is when the binary was built
@@ -12,9 +12,6 @@ var (
 
 // GetVersion returns the formatted version string
 func GetVersion() string {
-	if Version == "dev" {
-		return "goobrew development version"
-	}
 	return "goobrew version " + Version
 }
 

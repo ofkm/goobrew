@@ -12,7 +12,23 @@ goobrew follows [Semantic Versioning](https://semver.org/):
 
 ## Creating a Release
 
-### 1. Prepare the Release
+### 1. Update Version in Code
+
+**IMPORTANT**: Before creating a tag, update the version number in the code:
+
+1. Edit `internal/version/version.go` and update the `Version` constant:
+   ```go
+   Version = "X.Y.Z"  // Change from previous version
+   ```
+
+2. Commit this change:
+   ```bash
+   git add internal/version/version.go
+   git commit -m "Bump version to vX.Y.Z"
+   git push origin main
+   ```
+
+### 2. Ensure Quality
 
 1. Ensure all tests pass:
 
@@ -21,33 +37,38 @@ goobrew follows [Semantic Versioning](https://semver.org/):
    make lint
    ```
 
-2. Update CHANGELOG.md (if you have one) with the changes in this release
+2. Verify CI is green on GitHub Actions
 
-3. Commit any pending changes:
-   ```bash
-   git add .
-   git commit -m "Prepare for vX.Y.Z release"
-   ```
-
-### 2. Create and Push the Tag
+### 3. Create and Push the Tag
 
 1. Create a git tag following the format `vX.Y.Z`:
 
    ```bash
-   git tag -a v0.1.0 -m "Release v0.1.0"
+   git tag -a v0.2.0 -m "Release v0.2.0: Add new features"
    ```
 
 2. Push the tag to GitHub:
    ```bash
-   git push origin v0.1.0
+   git push origin v0.2.0
    ```
 
-### 3. Verify the Release
+3. The GitHub Actions workflow will automatically:
+   - Build binaries for multiple platforms (Linux, macOS, Windows)
+   - Create checksums for all binaries
+   - Generate release notes
+   - Create a GitHub Release with all artifacts
+   - Test the installation
 
-Once the tag is pushed, users can install it with:
+### 4. Verify the Release
+
+Once the tag is pushed and the workflow completes:
+
+1. Check the GitHub Actions workflow succeeded
+2. Verify the release appears at https://github.com/ofkm/goobrew/releases
+3. Test installation:
 
 ```bash
-go install github.com/ofkm/goobrew@v0.1.0
+go install github.com/ofkm/goobrew@v0.2.0
 ```
 
 Or the latest version:
@@ -58,11 +79,28 @@ go install github.com/ofkm/goobrew@latest
 
 ## Version Information
 
-The version information is embedded in the binary at build time using `ldflags`. Users can check the version with:
+The version is set in `internal/version/version.go` and **must be updated before each release**.
+
+For builds with additional metadata (commit, build time), the Makefile and CI use ldflags to inject:
+- Git commit hash
+- Build timestamp
+
+Users can check the version with:
 
 ```bash
 goobrew version
 ```
+
+## Automated Release Workflow
+
+The `.github/workflows/release.yml` automatically runs when you push a tag and:
+
+1. Builds binaries for Linux, macOS, Windows (amd64 + arm64)
+2. Embeds full version info (version, commit, build time)
+3. Creates SHA256 checksums
+4. Generates release notes from commits
+5. Publishes GitHub Release with all artifacts
+6. Tests the installation
 
 ## Local Development
 

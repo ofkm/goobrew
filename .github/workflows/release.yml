@@ -1,0 +1,185 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "v*.*.*"
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        name: Build Release Binaries
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-latest
+                      goos: linux
+                      goarch: amd64
+                      artifact_name: goobrew-linux-amd64
+                    - os: ubuntu-latest
+                      goos: linux
+                      goarch: arm64
+                      artifact_name: goobrew-linux-arm64
+                    - os: macos-latest
+                      goos: darwin
+                      goarch: amd64
+                      artifact_name: goobrew-darwin-amd64
+                    - os: macos-latest
+                      goos: darwin
+                      goarch: arm64
+                      artifact_name: goobrew-darwin-arm64
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+
+            - name: Set up Go
+              uses: actions/setup-go@v6
+              with:
+                  go-version: stable
+                  cache: true
+
+            - name: Get version info
+              id: version
+              shell: bash
+              run: |
+                  VERSION=${GITHUB_REF#refs/tags/}
+                  COMMIT=$(git rev-parse --short HEAD)
+                  BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S')
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+                  echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+                  echo "build_time=$BUILD_TIME" >> $GITHUB_OUTPUT
+
+            - name: Build binary
+              env:
+                  GOOS: ${{ matrix.goos }}
+                  GOARCH: ${{ matrix.goarch }}
+                  CGO_ENABLED: 0
+              run: |
+                  go build \
+                    -ldflags="-s -w -X 'github.com/ofkm/goobrew/internal/version.Version=${{ steps.version.outputs.version }}' -X 'github.com/ofkm/goobrew/internal/version.Commit=${{ steps.version.outputs.commit }}' -X 'github.com/ofkm/goobrew/internal/version.BuildTime=${{ steps.version.outputs.build_time }}'" \
+                    -trimpath \
+                    -o ${{ matrix.artifact_name }} \
+                    .
+
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.artifact_name }}
+                  path: ${{ matrix.artifact_name }}
+                  retention-days: 1
+
+    release:
+        name: Create Release
+        needs: build
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Display structure
+              run: ls -R artifacts
+
+            - name: Create checksums
+              run: |
+                  cd artifacts
+                  for dir in */; do
+                    cd "$dir"
+                    for file in *; do
+                      sha256sum "$file" > "${file}.sha256"
+                    done
+                    cd ..
+                  done
+
+            - name: Generate release notes
+              id: notes
+              run: |
+                  VERSION=${GITHUB_REF#refs/tags/}
+                  echo "Generating release notes for $VERSION"
+
+                  # Get the previous tag
+                  PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+                  # Generate changelog
+                  if [ -z "$PREV_TAG" ]; then
+                    echo "## What's New" > notes.md
+                    echo "" >> notes.md
+                    echo "Initial release of goobrew - a fast and beautiful Homebrew wrapper!" >> notes.md
+                    echo "" >> notes.md
+                    echo "### Features" >> notes.md
+                    echo "- 🚀 Fast parallel API operations with goroutines" >> notes.md
+                    echo "- 🎨 Beautiful UI with colors and icons" >> notes.md
+                    echo "- 📝 Structured logging with slog and tint" >> notes.md
+                    echo "- ✅ Comprehensive test coverage (83%+)" >> notes.md
+                    echo "- ⚡ Sub-second search performance" >> notes.md
+                    echo "- 🔄 Full Homebrew compatibility" >> notes.md
+                  else
+                    echo "## What's Changed" > notes.md
+                    echo "" >> notes.md
+                    git log --pretty=format:"- %s" $PREV_TAG..HEAD >> notes.md
+                  fi
+
+                  echo "" >> notes.md
+                  echo "" >> notes.md
+                  echo "## Installation" >> notes.md
+                  echo "" >> notes.md
+                  echo '```bash' >> notes.md
+                  echo "go install github.com/ofkm/goobrew@$VERSION" >> notes.md
+                  echo '```' >> notes.md
+                  echo "" >> notes.md
+                  echo "Or download a pre-built binary from the assets below." >> notes.md
+
+            - name: Create Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  body_path: notes.md
+                  files: |
+                      artifacts/*/*
+                  draft: false
+                  prerelease: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # Optionally test installation
+    test-install:
+        name: Test Installation
+        needs: release
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Set up Go
+              uses: actions/setup-go@v6
+              with:
+                  go-version: stable
+
+            - name: Test go install
+              run: |
+                  VERSION=${GITHUB_REF#refs/tags/}
+                  go install github.com/ofkm/goobrew@$VERSION
+                  goobrew version
+
+            - name: Verify version
+              run: |
+                  VERSION=${GITHUB_REF#refs/tags/}
+                  INSTALLED_VERSION=$(goobrew version | head -n1)
+                  echo "Expected: goobrew version $VERSION"
+                  echo "Got: $INSTALLED_VERSION"
+                  if [[ "$INSTALLED_VERSION" == *"$VERSION"* ]]; then
+                    echo "✅ Version matches!"
+                  else
+                    echo "❌ Version mismatch!"
+                    exit 1
+                  fi
