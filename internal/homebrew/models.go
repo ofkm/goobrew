@@ -57,9 +57,9 @@ type Formula struct {
 
 // Versions contains version information for a formula.
 type Versions struct {
-	Stable string `json:"stable"`          // Stable is the stable version number
-	Head   string `json:"head,omitempty"`  // Head is the HEAD version if available
-	Bottle bool   `json:"bottle"`          // Bottle indicates if precompiled bottles are available
+	Stable string `json:"stable"`         // Stable is the stable version number
+	Head   string `json:"head,omitempty"` // Head is the HEAD version if available
+	Bottle bool   `json:"bottle"`         // Bottle indicates if precompiled bottles are available
 }
 
 // URLs contains download URLs for a formula.
@@ -79,14 +79,14 @@ type StableURL struct {
 
 // HeadURL contains the development HEAD download information.
 type HeadURL struct {
-	URL    string `json:"url"`               // URL is the repository URL
-	Branch string `json:"branch,omitempty"`  // Branch is the git branch
-	Using  string `json:"using,omitempty"`   // Using specifies download strategy
+	URL    string `json:"url"`              // URL is the repository URL
+	Branch string `json:"branch,omitempty"` // Branch is the git branch
+	Using  string `json:"using,omitempty"`  // Using specifies download strategy
 }
 
 // Bottle contains precompiled binary package information.
 type Bottle struct {
-	Rebuild int                   `json:"rebuild"` // Rebuild number
+	Rebuild int                   `json:"rebuild"`  // Rebuild number
 	RootURL string                `json:"root_url"` // RootURL is the base URL for bottles
 	Files   map[string]BottleFile `json:"files"`    // Files maps platform to bottle file info
 }
@@ -129,7 +129,7 @@ type InstalledInfo struct {
 	Time                  int64        `json:"time"`
 	RuntimeDependencies   []Dependency `json:"runtime_dependencies"`
 	InstalledAsDependency bool         `json:"installed_as_dependency"`
-	InstalledOnRequest    bool         `json:"installed_on_request"`    // InstalledOnRequest indicates if installed explicitly
+	InstalledOnRequest    bool         `json:"installed_on_request"` // InstalledOnRequest indicates if installed explicitly
 }
 
 // Dependency represents a formula dependency.
@@ -143,11 +143,11 @@ type Dependency struct {
 
 // Service defines a background service configuration for a formula.
 type Service struct {
-	Name       string          `json:"name"`                    // Name is the service name
-	RunType    string          `json:"run_type"`                // RunType defines when the service runs
-	RunAtLoad  bool            `json:"run_at_load,omitempty"`   // RunAtLoad indicates if service starts at load
-	KeepAlive  json.RawMessage `json:"keep_alive,omitempty"`    // KeepAlive can be bool or object
-	WorkingDir string          `json:"working_dir,omitempty"`   // WorkingDir is the service working directory
+	Name       string          `json:"name"`                  // Name is the service name
+	RunType    string          `json:"run_type"`              // RunType defines when the service runs
+	RunAtLoad  bool            `json:"run_at_load,omitempty"` // RunAtLoad indicates if service starts at load
+	KeepAlive  json.RawMessage `json:"keep_alive,omitempty"`  // KeepAlive can be bool or object
+	WorkingDir string          `json:"working_dir,omitempty"` // WorkingDir is the service working directory
 }
 
 // GetKeepAliveBool attempts to extract a boolean value from the KeepAlive field.
@@ -183,9 +183,9 @@ type SearchResult struct {
 // InstallationStatus represents the current state of a package installation.
 // It is used to communicate progress updates from the Install method to callers.
 type InstallationStatus struct {
-	Formula   string        // Formula is the package name being installed
-	Stage     string        // Stage is one of: "downloading", "installing", "linking", "completed", "failed"
-	Progress  int           // Progress is a percentage from 0-100
-	StartTime time.Time     // StartTime is when the installation began
-	Error     error         // Error contains any error that occurred
+	Formula   string    // Formula is the package name being installed
+	Stage     string    // Stage is one of: "downloading", "installing", "linking", "completed", "failed"
+	Progress  int       // Progress is a percentage from 0-100
+	StartTime time.Time // StartTime is when the installation began
+	Error     error     // Error contains any error that occurred
 }

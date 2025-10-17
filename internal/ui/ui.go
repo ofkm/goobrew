@@ -1,5 +1,5 @@
 // Package ui provides user interface utilities for goobrew.
-// It includes color constants, emoji icons, and formatting functions for
+// It includes color constants, Nerd Font icons, and formatting functions for
 // displaying information in a beautiful and user-friendly way.
 package ui
 
@@ -13,33 +13,34 @@ import (
 
 // Colors are ANSI escape codes for terminal text formatting.
 const (
-	Reset   = "\033[0m"   // Reset resets all formatting
-	Bold    = "\033[1m"   // Bold makes text bold
-	Red     = "\033[31m"  // Red colors text red
-	Green   = "\033[32m"  // Green colors text green
-	Yellow  = "\033[33m"  // Yellow colors text yellow
-	Blue    = "\033[34m"  // Blue colors text blue
-	Magenta = "\033[35m"  // Magenta colors text magenta
-	Cyan    = "\033[36m"  // Cyan colors text cyan
-	Gray    = "\033[90m"  // Gray colors text gray
+	Reset   = "\033[0m"  // Reset resets all formatting
+	Bold    = "\033[1m"  // Bold makes text bold
+	Red     = "\033[31m" // Red colors text red
+	Green   = "\033[32m" // Green colors text green
+	Yellow  = "\033[33m" // Yellow colors text yellow
+	Blue    = "\033[34m" // Blue colors text blue
+	Magenta = "\033[35m" // Magenta colors text magenta
+	Cyan    = "\033[36m" // Cyan colors text cyan
+	Gray    = "\033[90m" // Gray colors text gray
 )
 
-// Symbols are emoji icons used throughout the UI.
+// Symbols are Nerd Font icons used throughout the UI.
+// These icons require a Nerd Font patched font to display correctly.
 const (
-	IconBeer     = "🍺" // IconBeer represents Homebrew
-	IconPackage  = "📦" // IconPackage represents packages
-	IconSearch   = "🔍" // IconSearch represents search operations
-	IconInfo     = "ℹ️"  // IconInfo represents information
-	IconSuccess  = "✅" // IconSuccess represents successful operations
-	IconError    = "❌" // IconError represents errors
-	IconWarning  = "⚠️"  // IconWarning represents warnings
-	IconDownload = "⬇️"  // IconDownload represents downloads
-	IconInstall  = "⚙️"  // IconInstall represents installation
-	IconLink     = "🔗" // IconLink represents linking
-	IconUpdate   = "🔄" // IconUpdate represents updates
-	IconTrash    = "🗑️"  // IconTrash represents uninstallation
-	IconSparkles = "✨" // IconSparkles represents completion
-	IconRocket   = "🚀" // IconRocket represents upgrades
+	IconBeer     = "\uf0f8"     // IconBeer represents Homebrew (nf-dev-homebrew)
+	IconPackage  = "\U000f0317" // IconPackage represents packages (nf-md-package)
+	IconSearch   = "\uf002"     // IconSearch represents search operations (nf-fa-search)
+	IconInfo     = "\uf05a"     // IconInfo represents information (nf-fa-info_circle)
+	IconSuccess  = "\uf058"     // IconSuccess represents successful operations (nf-fa-check_circle)
+	IconError    = "\uf057"     // IconError represents errors (nf-fa-times_circle)
+	IconWarning  = "\uf071"     // IconWarning represents warnings (nf-fa-exclamation_triangle)
+	IconDownload = "\uf019"     // IconDownload represents downloads (nf-fa-download)
+	IconInstall  = "\uf013"     // IconInstall represents installation (nf-fa-cog)
+	IconLink     = "\uf0c1"     // IconLink represents linking (nf-fa-link)
+	IconUpdate   = "\uf021"     // IconUpdate represents updates (nf-fa-refresh)
+	IconTrash    = "\uf1f8"     // IconTrash represents uninstallation (nf-fa-trash)
+	IconSparkles = "\uf005"     // IconSparkles represents completion (nf-fa-star)
+	IconRocket   = "\uf135"     // IconRocket represents upgrades (nf-fa-rocket)
 )
 
 // FormatDuration formats a time.Duration into a human-readable string.

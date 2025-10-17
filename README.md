@@ -7,14 +7,14 @@
 > [!NOTE]
 > This is a WIP eventually want to make this a standlone brew client instead of a wrapper.
 
-A fast and UX-friendly wrapper for Homebrew written in Go.
+A opinionated fast and friendly wrapper for Homebrew written in Go.
 
 ## Features
 
-- 🚀 **Fast**: Built in Go for optimal performance
-- 😊 **User-friendly**: Enhanced UX with emoji indicators and timing information
-- 🔄 **Full Homebrew compatibility**: All standard brew commands work seamlessly
-- ⚡ **Convenient aliases**: Shorter commands for common operations
+- **Fast**: Built in Go for optimal performance
+- **User-friendly**: Enhanced UX with nerd-font icon indicators and timing information
+- **Full Homebrew compatibility**: All standard brew commands work seamlessly
+- **Convenient aliases**: Shorter commands for common operations
 
 ## Installation
 

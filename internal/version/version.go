@@ -5,7 +5,7 @@ package version
 // Build information variables set via ldflags during compilation.
 var (
 	// Version is the semantic version number (e.g., "0.1.2").
-	Version = "0.1.2"
+	Version = "0.2.0"
 	// Commit is the git commit hash of the build.
 	Commit = "none"
 	// BuildTime is the timestamp when the binary was built.
