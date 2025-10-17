@@ -17,6 +17,7 @@ goobrew follows [Semantic Versioning](https://semver.org/):
 **IMPORTANT**: Before creating a tag, update the version number in the code:
 
 1. Edit `internal/version/version.go` and update the `Version` constant:
+
    ```go
    Version = "X.Y.Z"  // Change from previous version
    ```
@@ -48,6 +49,7 @@ goobrew follows [Semantic Versioning](https://semver.org/):
    ```
 
 2. Push the tag to GitHub:
+
    ```bash
    git push origin v0.2.0
    ```
@@ -82,6 +84,7 @@ go install github.com/ofkm/goobrew@latest
 The version is set in `internal/version/version.go` and **must be updated before each release**.
 
 For builds with additional metadata (commit, build time), the Makefile and CI use ldflags to inject:
+
 - Git commit hash
 - Build timestamp
 
