@@ -1,5 +1,9 @@
 # goobrew 🍺
 
+[![Tests](https://github.com/ofkm/goobrew/actions/workflows/test.yml/badge.svg)](https://github.com/ofkm/goobrew/actions/workflows/test.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ofkm/goobrew)](https://goreportcard.com/report/github.com/ofkm/goobrew)
+[![License](https://img.shields.io/github/license/ofkm/goobrew)](LICENSE)
+
 A fast and UX-friendly wrapper for Homebrew written in Go.
 
 ## Features

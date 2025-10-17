@@ -71,33 +71,52 @@ func NewClient() (*Client, error) {
 	return client, nil
 }
 
-// loadFormulaeAndCasks loads the complete list of formulae and casks from the API
+// loadFormulaeAndCasks loads the complete list of formulae and casks from the API in parallel
 func (c *Client) loadFormulaeAndCasks() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	logger.Log.Debug("loading formulae and casks from API")
+	logger.Log.Debug("loading formulae and casks from API in parallel")
 
-	// Load formulae
-	if formulae, err := c.fetchFormulaeList(ctx); err == nil {
-		c.cacheMutex.Lock()
+	// Use channels to load formulae and casks concurrently
+	formulaeChan := make(chan []FormulaListItem)
+	casksChan := make(chan []CaskListItem)
+
+	// Load formulae in parallel
+	go func() {
+		if formulae, err := c.fetchFormulaeList(ctx); err == nil {
+			logger.Log.Debug("loaded formulae from API", "count", len(formulae))
+			formulaeChan <- formulae
+		} else {
+			logger.Log.Warn("failed to load formulae from API", "error", err)
+			formulaeChan <- nil
+		}
+	}()
+
+	// Load casks in parallel
+	go func() {
+		if casks, err := c.fetchCasksList(ctx); err == nil {
+			logger.Log.Debug("loaded casks from API", "count", len(casks))
+			casksChan <- casks
+		} else {
+			logger.Log.Warn("failed to load casks from API", "error", err)
+			casksChan <- nil
+		}
+	}()
+
+	// Wait for both to complete and update cache atomically
+	formulae := <-formulaeChan
+	casks := <-casksChan
+
+	c.cacheMutex.Lock()
+	if formulae != nil {
 		c.formulaeCache = formulae
 		c.cacheTimestamp = time.Now()
-		c.cacheMutex.Unlock()
-		logger.Log.Debug("loaded formulae from API", "count", len(formulae))
-	} else {
-		logger.Log.Warn("failed to load formulae from API", "error", err)
 	}
-
-	// Load casks
-	if casks, err := c.fetchCasksList(ctx); err == nil {
-		c.cacheMutex.Lock()
+	if casks != nil {
 		c.casksCache = casks
-		c.cacheMutex.Unlock()
-		logger.Log.Debug("loaded casks from API", "count", len(casks))
-	} else {
-		logger.Log.Warn("failed to load casks from API", "error", err)
 	}
+	c.cacheMutex.Unlock()
 }
 
 // fetchFormulaeList fetches the complete list of formulae from the API
@@ -111,7 +130,11 @@ func (c *Client) fetchFormulaeList(ctx context.Context) ([]FormulaListItem, erro
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
@@ -141,7 +164,11 @@ func (c *Client) fetchCasksList(ctx context.Context) ([]CaskListItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
@@ -233,7 +260,7 @@ func (c *Client) GetInstalledFormulae(ctx context.Context) ([]Formula, error) {
 	return formulae, nil
 }
 
-// Search searches for formulae and casks using cached API data
+// Search searches for formulae and casks using cached API data with parallel processing
 func (c *Client) Search(ctx context.Context, term string) ([]string, []string, error) {
 	c.cacheMutex.RLock()
 	formulaeCache := c.formulaeCache
@@ -255,33 +282,47 @@ func (c *Client) Search(ctx context.Context, term string) ([]string, []string, e
 		c.cacheMutex.RUnlock()
 	}
 
-	// Search in cached formulae
-	var formulaeResults []string
 	lowerTerm := strings.ToLower(term)
 
-	for _, f := range formulaeCache {
-		if strings.Contains(strings.ToLower(f.Name), lowerTerm) ||
-			strings.Contains(strings.ToLower(f.Desc), lowerTerm) {
-			formulaeResults = append(formulaeResults, f.Name)
-		}
-	}
+	// Use channels for concurrent search results
+	formulaeChan := make(chan []string)
+	casksChan := make(chan []string)
 
-	// Search in cached casks
-	var casksResults []string
-	for _, c := range casksCache {
-		if strings.Contains(strings.ToLower(c.Token), lowerTerm) ||
-			strings.Contains(strings.ToLower(c.Desc), lowerTerm) {
-			casksResults = append(casksResults, c.Token)
-		} else {
-			// Also search in cask names
-			for _, name := range c.Name {
-				if strings.Contains(strings.ToLower(name), lowerTerm) {
-					casksResults = append(casksResults, c.Token)
-					break
+	// Search formulae in parallel
+	go func() {
+		var results []string
+		for _, f := range formulaeCache {
+			if strings.Contains(strings.ToLower(f.Name), lowerTerm) ||
+				strings.Contains(strings.ToLower(f.Desc), lowerTerm) {
+				results = append(results, f.Name)
+			}
+		}
+		formulaeChan <- results
+	}()
+
+	// Search casks in parallel
+	go func() {
+		var results []string
+		for _, c := range casksCache {
+			if strings.Contains(strings.ToLower(c.Token), lowerTerm) ||
+				strings.Contains(strings.ToLower(c.Desc), lowerTerm) {
+				results = append(results, c.Token)
+			} else {
+				// Also search in cask names
+				for _, name := range c.Name {
+					if strings.Contains(strings.ToLower(name), lowerTerm) {
+						results = append(results, c.Token)
+						break
+					}
 				}
 			}
 		}
-	}
+		casksChan <- results
+	}()
+
+	// Wait for both searches to complete
+	formulaeResults := <-formulaeChan
+	casksResults := <-casksChan
 
 	logger.Log.Debug("search completed",
 		"term", term,
@@ -383,7 +424,11 @@ func (c *Client) fetchFormula(ctx context.Context, url string) (*Formula, error)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)

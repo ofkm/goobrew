@@ -60,12 +60,23 @@ func TestLoadFormulaeAndCasks(t *testing.T) {
 	}
 
 	// Test fetchFormulaeList
-	req, _ := http.NewRequest("GET", server.URL+"/formula.json", nil)
-	resp, _ := client.httpClient.Do(req)
-	defer resp.Body.Close()
+	req, err := http.NewRequest("GET", server.URL+"/formula.json", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	resp, err := client.httpClient.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to execute request: %v", err)
+	}
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+	}()
 
 	var formulae []FormulaListItem
-	err := json.NewDecoder(resp.Body).Decode(&formulae)
+	err = json.NewDecoder(resp.Body).Decode(&formulae)
 	if err != nil {
 		t.Fatalf("Failed to decode formulae: %v", err)
 	}
