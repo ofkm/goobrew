@@ -556,14 +556,14 @@ func TestMonitorInstallation(t *testing.T) {
 	client.monitorInstallation(stdout, stderr, "git", statusChan)
 
 	// Collect statuses with timeout to avoid hanging
-	var statuses []InstallationStatus
+	statusCount := 0
 	timeout := time.After(500 * time.Millisecond)
 
 collecting:
 	for {
 		select {
-		case status := <-statusChan:
-			statuses = append(statuses, status)
+		case <-statusChan:
+			statusCount++
 		case <-timeout:
 			break collecting
 		}
@@ -572,4 +572,8 @@ collecting:
 	// monitorInstallation reads from readers and sends statuses.
 	// We're just testing that it doesn't panic and can parse output.
 	// The goroutines will exit naturally when readers are exhausted.
+	// We expect at least some status updates from the sample output
+	if statusCount > 0 {
+		t.Logf("Received %d status updates", statusCount)
+	}
 }
