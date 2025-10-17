@@ -15,16 +15,19 @@ A fast and UX-friendly wrapper for Homebrew written in Go.
 
 ## Installation
 
+### Using go install
+
 ```bash
 go install github.com/ofkm/goobrew@latest
 ```
 
-Or build from source:
+### From source
 
 ```bash
 git clone https://github.com/ofkm/goobrew.git
 cd goobrew
-go build -o goobrew
+make build
+# Or: make install to install to $GOPATH/bin
 ```
 
 ## Usage
@@ -59,6 +62,9 @@ goobrew ls
 
 # Show package information
 goobrew info git
+
+# Show version
+goobrew version
 ```
 
 ### Pass-through to Homebrew

@@ -9,6 +9,7 @@ import (
 	"github.com/ofkm/goobrew/internal/homebrew"
 	"github.com/ofkm/goobrew/internal/logger"
 	"github.com/ofkm/goobrew/internal/ui"
+	"github.com/ofkm/goobrew/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +43,7 @@ beautiful, user-friendly interface.`,
 			os.Exit(1)
 		}
 
-		logger.Log.Debug("goobrew initialized", "version", "dev")
+		logger.Log.Debug("goobrew initialized", "version", version.Version)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
