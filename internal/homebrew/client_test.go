@@ -558,7 +558,7 @@ func TestMonitorInstallation(t *testing.T) {
 	// Collect statuses with timeout to avoid hanging
 	var statuses []InstallationStatus
 	timeout := time.After(500 * time.Millisecond)
-	
+
 collecting:
 	for {
 		select {
