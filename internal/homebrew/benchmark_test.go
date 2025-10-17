@@ -45,9 +45,10 @@ func BenchmarkLoadFormulaeAndCasks(b *testing.B) {
 		b.Skip("Skipping: brew not found")
 	}
 
+	ctx := context.Background()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		client.loadFormulaeAndCasks()
+		client.loadFormulaeAndCasks(ctx)
 	}
 }
 

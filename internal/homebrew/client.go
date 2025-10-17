@@ -66,14 +66,14 @@ func NewClient() (*Client, error) {
 	}
 
 	// Pre-load formulae and casks list in background for faster searches
-	go client.loadFormulaeAndCasks()
+	go client.loadFormulaeAndCasks(context.Background())
 
 	return client, nil
 }
 
 // loadFormulaeAndCasks loads the complete list of formulae and casks from the API in parallel
-func (c *Client) loadFormulaeAndCasks() {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (c *Client) loadFormulaeAndCasks(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	logger.Log.Debug("loading formulae and casks from API in parallel")
@@ -121,7 +121,7 @@ func (c *Client) loadFormulaeAndCasks() {
 
 // fetchFormulaeList fetches the complete list of formulae from the API
 func (c *Client) fetchFormulaeList(ctx context.Context) ([]FormulaListItem, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", HomebrewAPIFormulae, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, HomebrewAPIFormulae, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (c *Client) fetchFormulaeList(ctx context.Context) ([]FormulaListItem, erro
 
 // fetchCasksList fetches the complete list of casks from the API
 func (c *Client) fetchCasksList(ctx context.Context) ([]CaskListItem, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", HomebrewAPICasks, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, HomebrewAPICasks, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -226,6 +226,7 @@ func (c *Client) GetFormula(ctx context.Context, name string) (*Formula, error) 
 
 // getLocalInstallInfo gets installation info for a formula from local brew
 func (c *Client) getLocalInstallInfo(ctx context.Context, name string) ([]InstalledInfo, error) {
+	//nolint:gosec // brewPath is validated at client creation
 	cmd := exec.CommandContext(ctx, c.brewPath, "info", "--json=v1", name)
 	output, err := cmd.Output()
 	if err != nil {
@@ -246,6 +247,7 @@ func (c *Client) getLocalInstallInfo(ctx context.Context, name string) ([]Instal
 
 // GetInstalledFormulae retrieves all installed formulae
 func (c *Client) GetInstalledFormulae(ctx context.Context) ([]Formula, error) {
+	//nolint:gosec // brewPath is validated at client creation
 	cmd := exec.CommandContext(ctx, c.brewPath, "info", "--json=v1", "--installed")
 	output, err := cmd.Output()
 	if err != nil {
@@ -271,7 +273,7 @@ func (c *Client) Search(ctx context.Context, term string) ([]string, []string, e
 	// Reload cache if it's too old or empty
 	if cacheAge > cacheExpiry || len(formulaeCache) == 0 || len(casksCache) == 0 {
 		logger.Log.Debug("cache expired or empty, reloading")
-		c.loadFormulaeAndCasks()
+		c.loadFormulaeAndCasks(ctx)
 
 		// Wait a bit for the reload to complete
 		time.Sleep(100 * time.Millisecond)
@@ -342,6 +344,7 @@ func (c *Client) Install(ctx context.Context, packages []string, statusChan chan
 		}
 		statusChan <- status
 
+		//nolint:gosec // brewPath is validated at client creation
 		cmd := exec.CommandContext(ctx, c.brewPath, "install", pkg)
 
 		// Create pipes for stdout and stderr
@@ -389,6 +392,7 @@ func (c *Client) Install(ctx context.Context, packages []string, statusChan chan
 // Uninstall removes one or more packages
 func (c *Client) Uninstall(ctx context.Context, packages []string) error {
 	args := append([]string{"uninstall"}, packages...)
+	//nolint:gosec // brewPath is validated at client creation, args are package names
 	cmd := exec.CommandContext(ctx, c.brewPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -397,6 +401,7 @@ func (c *Client) Uninstall(ctx context.Context, packages []string) error {
 
 // Update updates Homebrew
 func (c *Client) Update(ctx context.Context) error {
+	//nolint:gosec // brewPath is validated at client creation
 	cmd := exec.CommandContext(ctx, c.brewPath, "update")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -406,6 +411,7 @@ func (c *Client) Update(ctx context.Context) error {
 // Upgrade upgrades packages
 func (c *Client) Upgrade(ctx context.Context, packages []string) error {
 	args := append([]string{"upgrade"}, packages...)
+	//nolint:gosec // brewPath is validated at client creation, args are package names
 	cmd := exec.CommandContext(ctx, c.brewPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -415,7 +421,7 @@ func (c *Client) Upgrade(ctx context.Context, packages []string) error {
 // Helper methods
 
 func (c *Client) fetchFormula(ctx context.Context, url string) (*Formula, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -512,6 +518,7 @@ func (c *Client) parseInstallOutput(pkg, line string) *InstallationStatus {
 
 // ExecuteCommand executes a raw brew command (fallback)
 func (c *Client) ExecuteCommand(ctx context.Context, args []string) error {
+	//nolint:gosec // brewPath is validated at client creation, args are user commands
 	cmd := exec.CommandContext(ctx, c.brewPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -47,10 +47,11 @@ var installCmd = &cobra.Command{
 
 			ui.PrintInstallProgress(status)
 
-			if status.Stage == "completed" {
+			switch status.Stage {
+			case "completed":
 				fmt.Println() // New line after completion
 				ui.PrintSuccess(fmt.Sprintf("%s installed successfully", status.Formula))
-			} else if status.Stage == "failed" {
+			case "failed":
 				fmt.Println() // New line after failure
 				ui.PrintError(fmt.Sprintf("Failed to install %s: %v", status.Formula, status.Error))
 			}

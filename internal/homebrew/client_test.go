@@ -44,13 +44,13 @@ func TestLoadFormulaeAndCasks(t *testing.T) {
 				{Name: "git", Desc: "Distributed version control"},
 				{Name: "node", Desc: "JavaScript runtime"},
 			}
-			json.NewEncoder(w).Encode(formulae)
+			_ = json.NewEncoder(w).Encode(formulae)
 		} else if strings.Contains(r.URL.Path, "cask.json") {
 			casks := []CaskListItem{
 				{Token: "firefox", Name: []string{"Firefox"}, Desc: "Web browser"},
 				{Token: "chrome", Name: []string{"Google Chrome"}, Desc: "Web browser"},
 			}
-			json.NewEncoder(w).Encode(casks)
+			_ = json.NewEncoder(w).Encode(casks)
 		}
 	}))
 	defer server.Close()
@@ -60,7 +60,7 @@ func TestLoadFormulaeAndCasks(t *testing.T) {
 	}
 
 	// Test fetchFormulaeList
-	req, err := http.NewRequest("GET", server.URL+"/formula.json", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/formula.json", nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestGetFormula(t *testing.T) {
 				Homepage: "https://git-scm.com",
 				Versions: Versions{Stable: "2.51.1", Bottle: true},
 			}
-			json.NewEncoder(w).Encode(formula)
+			_ = json.NewEncoder(w).Encode(formula)
 		} else {
 			http.NotFound(w, r)
 		}
@@ -390,7 +390,7 @@ func TestFetchFormula(t *testing.T) {
 			Desc:     "Test formula",
 			Versions: Versions{Stable: "1.0.0", Bottle: false},
 		}
-		json.NewEncoder(w).Encode(formula)
+		_ = json.NewEncoder(w).Encode(formula)
 	}))
 	defer server.Close()
 
@@ -482,7 +482,7 @@ func TestHTTPErrors(t *testing.T) {
 func TestContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
-		json.NewEncoder(w).Encode(Formula{Name: "test"})
+		_ = json.NewEncoder(w).Encode(Formula{Name: "test"})
 	}))
 	defer server.Close()
 
@@ -559,9 +559,8 @@ func TestMonitorInstallation(t *testing.T) {
 
 	close(statusChan)
 
-	var stages []string
-	for status := range statusChan {
-		stages = append(stages, status.Stage)
+	// Consume all statuses to prevent goroutine leak
+	for range statusChan {
 	}
 
 	// monitorInstallation reads from readers which are closed,
