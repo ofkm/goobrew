@@ -1,0 +1,1061 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>homebrew: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/ofkm/goobrew/internal/homebrew/client.go (74.3%)</option>
+				
+				<option value="file1">github.com/ofkm/goobrew/internal/homebrew/models.go (100.0%)</option>
+				
+				<option value="file2">github.com/ofkm/goobrew/internal/logger/logger.go (100.0%)</option>
+				
+				<option value="file3">github.com/ofkm/goobrew/internal/ui/ui.go (95.3%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package homebrew
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "os"
+        "os/exec"
+        "strings"
+        "sync"
+        "time"
+
+        "github.com/ofkm/goobrew/internal/logger"
+)
+
+const (
+        HomebrewAPIBase     = "https://formulae.brew.sh/api"
+        HomebrewAPIFormulae = "https://formulae.brew.sh/api/formula.json"
+        HomebrewAPICasks    = "https://formulae.brew.sh/api/cask.json"
+        cacheExpiry         = 1 * time.Hour
+        installedCacheKey   = "_installed_formulae"
+)
+
+type Client struct {
+        httpClient     *http.Client
+        cache          sync.Map
+        brewPath       string
+        formulaeCache  []FormulaListItem // Cache of all formulae names and descriptions
+        casksCache     []CaskListItem    // Cache of all cask names and descriptions
+        cacheMutex     sync.RWMutex
+        cacheTimestamp time.Time
+}
+
+// FormulaListItem represents a minimal formula entry for listing/searching
+type FormulaListItem struct {
+        Name string `json:"name"`
+        Desc string `json:"desc"`
+}
+
+// CaskListItem represents a minimal cask entry for listing/searching
+type CaskListItem struct {
+        Token string   `json:"token"`
+        Name  []string `json:"name"`
+        Desc  string   `json:"desc"`
+}
+
+type cacheEntry struct {
+        data      interface{}
+        timestamp time.Time
+}
+
+// NewClient creates a new Homebrew client
+func NewClient() (*Client, error) <span class="cov8" title="1">{
+        brewPath, err := exec.LookPath("brew")
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("homebrew is not installed. Please install it from https://brew.sh")
+        }</span>
+
+        <span class="cov8" title="1">client := &amp;Client{
+                httpClient: &amp;http.Client{
+                        Timeout: 30 * time.Second,
+                },
+                brewPath: brewPath,
+        }
+
+        // Pre-load formulae and casks list in background for faster searches
+        go client.loadFormulaeAndCasks()
+
+        return client, nil</span>
+}
+
+// loadFormulaeAndCasks loads the complete list of formulae and casks from the API
+func (c *Client) loadFormulaeAndCasks() <span class="cov8" title="1">{
+        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+
+        logger.Log.Debug("loading formulae and casks from API")
+
+        // Load formulae
+        if formulae, err := c.fetchFormulaeList(ctx); err == nil </span><span class="cov8" title="1">{
+                c.cacheMutex.Lock()
+                c.formulaeCache = formulae
+                c.cacheTimestamp = time.Now()
+                c.cacheMutex.Unlock()
+                logger.Log.Debug("loaded formulae from API", "count", len(formulae))
+        }</span> else<span class="cov0" title="0"> {
+                logger.Log.Warn("failed to load formulae from API", "error", err)
+        }</span>
+
+        // Load casks
+        <span class="cov8" title="1">if casks, err := c.fetchCasksList(ctx); err == nil </span><span class="cov8" title="1">{
+                c.cacheMutex.Lock()
+                c.casksCache = casks
+                c.cacheMutex.Unlock()
+                logger.Log.Debug("loaded casks from API", "count", len(casks))
+        }</span> else<span class="cov0" title="0"> {
+                logger.Log.Warn("failed to load casks from API", "error", err)
+        }</span>
+}
+
+// fetchFormulaeList fetches the complete list of formulae from the API
+func (c *Client) fetchFormulaeList(ctx context.Context) ([]FormulaListItem, error) <span class="cov8" title="1">{
+        req, err := http.NewRequestWithContext(ctx, "GET", HomebrewAPIFormulae, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">resp, err := c.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
+        }</span>
+
+        <span class="cov8" title="1">body, err := io.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var formulae []FormulaListItem
+        if err := json.Unmarshal(body, &amp;formulae); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return formulae, nil</span>
+}
+
+// fetchCasksList fetches the complete list of casks from the API
+func (c *Client) fetchCasksList(ctx context.Context) ([]CaskListItem, error) <span class="cov8" title="1">{
+        req, err := http.NewRequestWithContext(ctx, "GET", HomebrewAPICasks, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">resp, err := c.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
+        }</span>
+
+        <span class="cov8" title="1">body, err := io.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var casks []CaskListItem
+        if err := json.Unmarshal(body, &amp;casks); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return casks, nil</span>
+}
+
+// GetFormula retrieves information about a specific formula from the web API
+func (c *Client) GetFormula(ctx context.Context, name string) (*Formula, error) <span class="cov0" title="0">{
+        // Check cache first
+        if cached, ok := c.getFromCache(name); ok </span><span class="cov0" title="0">{
+                if formula, ok := cached.(*Formula); ok </span><span class="cov0" title="0">{
+                        logger.Log.Debug("using cached formula data", "formula", name)
+                        return formula, nil
+                }</span>
+        }
+
+        // Fetch from web API
+        <span class="cov0" title="0">url := fmt.Sprintf("%s/formula/%s.json", HomebrewAPIBase, name)
+        logger.Log.Debug("fetching formula from web API", "url", url)
+
+        formula, err := c.fetchFormula(ctx, url)
+        if err != nil </span><span class="cov0" title="0">{
+                // Try as a cask if formula fetch failed
+                caskURL := fmt.Sprintf("%s/cask/%s.json", HomebrewAPIBase, name)
+                logger.Log.Debug("trying as cask", "url", caskURL)
+
+                if caskFormula, caskErr := c.fetchFormula(ctx, caskURL); caskErr == nil </span><span class="cov0" title="0">{
+                        c.cache.Store(name, cacheEntry{data: caskFormula, timestamp: time.Now()})
+                        return caskFormula, nil
+                }</span>
+
+                <span class="cov0" title="0">return nil, fmt.Errorf("package not found: %s (tried both formula and cask)", name)</span>
+        }
+
+        // Merge with local installation info
+        <span class="cov0" title="0">if installed, err := c.getLocalInstallInfo(ctx, name); err == nil &amp;&amp; len(installed) &gt; 0 </span><span class="cov0" title="0">{
+                formula.Installed = installed
+        }</span>
+
+        <span class="cov0" title="0">c.cache.Store(name, cacheEntry{data: formula, timestamp: time.Now()})
+        return formula, nil</span>
+}
+
+// getLocalInstallInfo gets installation info for a formula from local brew
+func (c *Client) getLocalInstallInfo(ctx context.Context, name string) ([]InstalledInfo, error) <span class="cov8" title="1">{
+        cmd := exec.CommandContext(ctx, c.brewPath, "info", "--json=v1", name)
+        output, err := cmd.Output()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var formulae []Formula
+        if err := json.Unmarshal(output, &amp;formulae); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if len(formulae) &gt; 0 </span><span class="cov8" title="1">{
+                return formulae[0].Installed, nil
+        }</span>
+
+        <span class="cov0" title="0">return nil, nil</span>
+}
+
+// GetInstalledFormulae retrieves all installed formulae
+func (c *Client) GetInstalledFormulae(ctx context.Context) ([]Formula, error) <span class="cov8" title="1">{
+        cmd := exec.CommandContext(ctx, c.brewPath, "info", "--json=v1", "--installed")
+        output, err := cmd.Output()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get installed formulae: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">var formulae []Formula
+        if err := json.Unmarshal(output, &amp;formulae); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse installed formulae: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return formulae, nil</span>
+}
+
+// Search searches for formulae and casks using cached API data
+func (c *Client) Search(ctx context.Context, term string) ([]string, []string, error) <span class="cov8" title="1">{
+        c.cacheMutex.RLock()
+        formulaeCache := c.formulaeCache
+        casksCache := c.casksCache
+        cacheAge := time.Since(c.cacheTimestamp)
+        c.cacheMutex.RUnlock()
+
+        // Reload cache if it's too old or empty
+        if cacheAge &gt; cacheExpiry || len(formulaeCache) == 0 || len(casksCache) == 0 </span><span class="cov8" title="1">{
+                logger.Log.Debug("cache expired or empty, reloading")
+                c.loadFormulaeAndCasks()
+
+                // Wait a bit for the reload to complete
+                time.Sleep(100 * time.Millisecond)
+
+                c.cacheMutex.RLock()
+                formulaeCache = c.formulaeCache
+                casksCache = c.casksCache
+                c.cacheMutex.RUnlock()
+        }</span>
+
+        // Search in cached formulae
+        <span class="cov8" title="1">var formulaeResults []string
+        lowerTerm := strings.ToLower(term)
+
+        for _, f := range formulaeCache </span><span class="cov8" title="1">{
+                if strings.Contains(strings.ToLower(f.Name), lowerTerm) ||
+                        strings.Contains(strings.ToLower(f.Desc), lowerTerm) </span><span class="cov8" title="1">{
+                        formulaeResults = append(formulaeResults, f.Name)
+                }</span>
+        }
+
+        // Search in cached casks
+        <span class="cov8" title="1">var casksResults []string
+        for _, c := range casksCache </span><span class="cov8" title="1">{
+                if strings.Contains(strings.ToLower(c.Token), lowerTerm) ||
+                        strings.Contains(strings.ToLower(c.Desc), lowerTerm) </span><span class="cov8" title="1">{
+                        casksResults = append(casksResults, c.Token)
+                }</span> else<span class="cov8" title="1"> {
+                        // Also search in cask names
+                        for _, name := range c.Name </span><span class="cov8" title="1">{
+                                if strings.Contains(strings.ToLower(name), lowerTerm) </span><span class="cov0" title="0">{
+                                        casksResults = append(casksResults, c.Token)
+                                        break</span>
+                                }
+                        }
+                }
+        }
+
+        <span class="cov8" title="1">logger.Log.Debug("search completed",
+                "term", term,
+                "formulae_results", len(formulaeResults),
+                "casks_results", len(casksResults))
+
+        return formulaeResults, casksResults, nil</span>
+}
+
+// Install installs one or more packages using brew command
+func (c *Client) Install(ctx context.Context, packages []string, statusChan chan&lt;- InstallationStatus) error <span class="cov8" title="1">{
+        for _, pkg := range packages </span><span class="cov8" title="1">{
+                status := InstallationStatus{
+                        Formula:   pkg,
+                        Stage:     "starting",
+                        StartTime: time.Now(),
+                }
+                statusChan &lt;- status
+
+                cmd := exec.CommandContext(ctx, c.brewPath, "install", pkg)
+
+                // Create pipes for stdout and stderr
+                stdout, err := cmd.StdoutPipe()
+                if err != nil </span><span class="cov0" title="0">{
+                        status.Stage = "failed"
+                        status.Error = err
+                        statusChan &lt;- status
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">stderr, err := cmd.StderrPipe()
+                if err != nil </span><span class="cov0" title="0">{
+                        status.Stage = "failed"
+                        status.Error = err
+                        statusChan &lt;- status
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if err := cmd.Start(); err != nil </span><span class="cov0" title="0">{
+                        status.Stage = "failed"
+                        status.Error = err
+                        statusChan &lt;- status
+                        continue</span>
+                }
+
+                // Monitor output
+                <span class="cov8" title="1">go c.monitorInstallation(stdout, stderr, pkg, statusChan)
+
+                if err := cmd.Wait(); err != nil </span><span class="cov8" title="1">{
+                        status.Stage = "failed"
+                        status.Error = err
+                        statusChan &lt;- status
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">status.Stage = "completed"
+                status.Progress = 100
+                statusChan &lt;- status</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// Uninstall removes one or more packages
+func (c *Client) Uninstall(ctx context.Context, packages []string) error <span class="cov8" title="1">{
+        args := append([]string{"uninstall"}, packages...)
+        cmd := exec.CommandContext(ctx, c.brewPath, args...)
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        return cmd.Run()
+}</span>
+
+// Update updates Homebrew
+func (c *Client) Update(ctx context.Context) error <span class="cov8" title="1">{
+        cmd := exec.CommandContext(ctx, c.brewPath, "update")
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        return cmd.Run()
+}</span>
+
+// Upgrade upgrades packages
+func (c *Client) Upgrade(ctx context.Context, packages []string) error <span class="cov8" title="1">{
+        args := append([]string{"upgrade"}, packages...)
+        cmd := exec.CommandContext(ctx, c.brewPath, args...)
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        return cmd.Run()
+}</span>
+
+// Helper methods
+
+func (c *Client) fetchFormula(ctx context.Context, url string) (*Formula, error) <span class="cov8" title="1">{
+        req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">resp, err := c.httpClient.Do(req)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
+        }</span>
+
+        <span class="cov8" title="1">body, err := io.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var formula Formula
+        if err := json.Unmarshal(body, &amp;formula); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;formula, nil</span>
+}
+
+func (c *Client) getFromCache(key string) (interface{}, bool) <span class="cov8" title="1">{
+        if val, ok := c.cache.Load(key); ok </span><span class="cov8" title="1">{
+                entry := val.(cacheEntry)
+                if time.Since(entry.timestamp) &lt; cacheExpiry </span><span class="cov8" title="1">{
+                        return entry.data, true
+                }</span>
+                <span class="cov8" title="1">c.cache.Delete(key)</span>
+        }
+        <span class="cov8" title="1">return nil, false</span>
+}
+
+func (c *Client) monitorInstallation(stdout, stderr io.Reader, pkg string, statusChan chan&lt;- InstallationStatus) <span class="cov8" title="1">{
+        scanner := func(r io.Reader) </span><span class="cov8" title="1">{
+                buf := make([]byte, 1024)
+                for </span><span class="cov8" title="1">{
+                        n, err := r.Read(buf)
+                        if n &gt; 0 </span><span class="cov8" title="1">{
+                                line := string(buf[:n])
+                                status := c.parseInstallOutput(pkg, line)
+                                if status != nil </span><span class="cov0" title="0">{
+                                        statusChan &lt;- *status
+                                }</span>
+                        }
+                        <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
+                                break</span>
+                        }
+                }
+        }
+
+        <span class="cov8" title="1">go scanner(stdout)
+        go scanner(stderr)</span>
+}
+
+func (c *Client) parseInstallOutput(pkg, line string) *InstallationStatus <span class="cov8" title="1">{
+        lower := strings.ToLower(line)
+
+        status := &amp;InstallationStatus{
+                Formula: pkg,
+        }
+
+        switch </span>{
+        case strings.Contains(lower, "downloading"):<span class="cov8" title="1">
+                status.Stage = "downloading"
+                status.Progress = 25</span>
+        case strings.Contains(lower, "installing"):<span class="cov8" title="1">
+                status.Stage = "installing"
+                status.Progress = 50</span>
+        case strings.Contains(lower, "pouring"):<span class="cov8" title="1">
+                status.Stage = "installing"
+                status.Progress = 60</span>
+        case strings.Contains(lower, "linking"):<span class="cov8" title="1">
+                status.Stage = "linking"
+                status.Progress = 90</span>
+        case strings.Contains(lower, "installed"):<span class="cov8" title="1">
+                status.Stage = "completed"
+                status.Progress = 100</span>
+        default:<span class="cov8" title="1">
+                return nil</span>
+        }
+
+        <span class="cov8" title="1">return status</span>
+}
+
+// ExecuteCommand executes a raw brew command (fallback)
+func (c *Client) ExecuteCommand(ctx context.Context, args []string) error <span class="cov8" title="1">{
+        cmd := exec.CommandContext(ctx, c.brewPath, args...)
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        cmd.Stdin = os.Stdin
+        return cmd.Run()
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package homebrew
+
+import (
+        "encoding/json"
+        "time"
+)
+
+// Formula represents a Homebrew formula
+type Formula struct {
+        Name                 string              `json:"name"`
+        FullName             string              `json:"full_name"`
+        Tap                  string              `json:"tap"`
+        OldName              string              `json:"oldname,omitempty"`
+        Aliases              []string            `json:"aliases"`
+        VersionedFormulae    []string            `json:"versioned_formulae"`
+        Desc                 string              `json:"desc"`
+        License              string              `json:"license,omitempty"`
+        Homepage             string              `json:"homepage"`
+        Versions             Versions            `json:"versions"`
+        Urls                 URLs                `json:"urls,omitempty"`
+        Revision             int                 `json:"revision"`
+        VersionScheme        int                 `json:"version_scheme"`
+        Bottle               Bottle              `json:"bottle"`
+        KegOnly              bool                `json:"keg_only"`
+        KegOnlyReason        *KegOnlyReason      `json:"keg_only_reason,omitempty"`
+        Options              []Option            `json:"options"`
+        BuildDependencies    []string            `json:"build_dependencies"`
+        Dependencies         []string            `json:"dependencies"`
+        TestDependencies     []string            `json:"test_dependencies"`
+        RecommendedDeps      []string            `json:"recommended_dependencies"`
+        OptionalDeps         []string            `json:"optional_dependencies"`
+        UsesFromMacos        []json.RawMessage   `json:"uses_from_macos"`
+        UsesFromMacosBounds  []map[string]string `json:"uses_from_macos_bounds"`
+        Requirements         []Requirement       `json:"requirements"`
+        ConflictsWith        []string            `json:"conflicts_with"`
+        ConflictsWithReasons []string            `json:"conflicts_with_reasons"`
+        LinkOverwrite        []string            `json:"link_overwrite"`
+        Caveats              string              `json:"caveats,omitempty"`
+        Installed            []InstalledInfo     `json:"installed"`
+        LinkedKeg            string              `json:"linked_keg,omitempty"`
+        Pinned               bool                `json:"pinned"`
+        Outdated             bool                `json:"outdated"`
+        Deprecated           bool                `json:"deprecated"`
+        DeprecationDate      string              `json:"deprecation_date,omitempty"`
+        DeprecationReason    string              `json:"deprecation_reason,omitempty"`
+        Disabled             bool                `json:"disabled"`
+        DisableDate          string              `json:"disable_date,omitempty"`
+        DisableReason        string              `json:"disable_reason,omitempty"`
+        PostInstallDefined   bool                `json:"post_install_defined"`
+        Service              *Service            `json:"service,omitempty"`
+        TapGitHead           string              `json:"tap_git_head,omitempty"`
+        RubySourcePath       string              `json:"ruby_source_path,omitempty"`
+        RubySourceChecksum   RubyChecksum        `json:"ruby_source_checksum,omitempty"`
+}
+
+type Versions struct {
+        Stable string `json:"stable"`
+        Head   string `json:"head,omitempty"`
+        Bottle bool   `json:"bottle"`
+}
+
+type URLs struct {
+        Stable StableURL `json:"stable,omitempty"`
+        Head   HeadURL   `json:"head,omitempty"`
+}
+
+type StableURL struct {
+        URL      string `json:"url"`
+        Tag      string `json:"tag,omitempty"`
+        Revision string `json:"revision,omitempty"`
+        Using    string `json:"using,omitempty"`
+        Checksum string `json:"checksum,omitempty"`
+}
+
+type HeadURL struct {
+        URL    string `json:"url"`
+        Branch string `json:"branch,omitempty"`
+        Using  string `json:"using,omitempty"`
+}
+
+type Bottle struct {
+        Rebuild int                   `json:"rebuild"`
+        RootURL string                `json:"root_url"`
+        Files   map[string]BottleFile `json:"files"`
+}
+
+type BottleFile struct {
+        Cellar string `json:"cellar"`
+        URL    string `json:"url"`
+        Sha256 string `json:"sha256"`
+}
+
+type KegOnlyReason struct {
+        Reason      string `json:"reason"`
+        Explanation string `json:"explanation"`
+}
+
+type Option struct {
+        Option      string `json:"option"`
+        Description string `json:"description"`
+}
+
+type Requirement struct {
+        Name     string   `json:"name"`
+        Cask     string   `json:"cask,omitempty"`
+        Download string   `json:"download,omitempty"`
+        Version  string   `json:"version,omitempty"`
+        Contexts []string `json:"contexts"`
+        Specs    []string `json:"specs"`
+}
+
+type InstalledInfo struct {
+        Version               string       `json:"version"`
+        UsedOptions           []string     `json:"used_options"`
+        BuiltAsBottle         bool         `json:"built_as_bottle"`
+        PouredFromBottle      bool         `json:"poured_from_bottle"`
+        Time                  int64        `json:"time"`
+        RuntimeDependencies   []Dependency `json:"runtime_dependencies"`
+        InstalledAsDependency bool         `json:"installed_as_dependency"`
+        InstalledOnRequest    bool         `json:"installed_on_request"`
+}
+
+type Dependency struct {
+        FullName         string `json:"full_name"`
+        Version          string `json:"version"`
+        Revision         int    `json:"revision"`
+        PkgVersion       string `json:"pkg_version"`
+        DeclaredDirectly bool   `json:"declared_directly"`
+}
+
+type Service struct {
+        Name       string          `json:"name"`
+        RunType    string          `json:"run_type"`
+        RunAtLoad  bool            `json:"run_at_load,omitempty"`
+        KeepAlive  json.RawMessage `json:"keep_alive,omitempty"` // Can be bool or object
+        WorkingDir string          `json:"working_dir,omitempty"`
+}
+
+// GetKeepAliveBool tries to extract a boolean value from KeepAlive
+func (s *Service) GetKeepAliveBool() bool <span class="cov8" title="1">{
+        if len(s.KeepAlive) == 0 </span><span class="cov8" title="1">{
+                return false
+        }</span>
+
+        // Try to unmarshal as bool
+        <span class="cov8" title="1">var boolVal bool
+        if err := json.Unmarshal(s.KeepAlive, &amp;boolVal); err == nil </span><span class="cov8" title="1">{
+                return boolVal
+        }</span>
+
+        // If it's an object, consider it as "enabled"
+        <span class="cov8" title="1">return true</span>
+}
+
+type RubyChecksum struct {
+        Sha256 string `json:"sha256"`
+}
+
+// SearchResult represents search results
+type SearchResult struct {
+        Formulae []string `json:"formulae"`
+        Casks    []string `json:"casks"`
+}
+
+// InstallationStatus represents installation progress
+type InstallationStatus struct {
+        Formula   string
+        Stage     string // "downloading", "installing", "linking", "completed", "failed"
+        Progress  int    // 0-100
+        StartTime time.Time
+        Error     error
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package logger
+
+import (
+        "log/slog"
+        "os"
+        "time"
+
+        "github.com/lmittmann/tint"
+)
+
+var Log *slog.Logger
+
+func init() <span class="cov8" title="1">{
+        // Create a tint handler with custom options
+        handler := tint.NewHandler(os.Stderr, &amp;tint.Options{
+                Level:      slog.LevelInfo,
+                TimeFormat: time.Kitchen,
+                NoColor:    !isTerminal(),
+        })
+
+        Log = slog.New(handler)
+}</span>
+
+// SetLevel changes the logging level
+func SetLevel(level slog.Level) <span class="cov8" title="1">{
+        handler := tint.NewHandler(os.Stderr, &amp;tint.Options{
+                Level:      level,
+                TimeFormat: time.Kitchen,
+                NoColor:    !isTerminal(),
+        })
+        Log = slog.New(handler)
+}</span>
+
+// isTerminal checks if stderr is a terminal
+func isTerminal() bool <span class="cov8" title="1">{
+        fileInfo, _ := os.Stderr.Stat()
+        return (fileInfo.Mode() &amp; os.ModeCharDevice) != 0
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package ui
+
+import (
+        "fmt"
+        "strings"
+        "time"
+
+        "github.com/ofkm/goobrew/internal/homebrew"
+)
+
+// Colors
+const (
+        Reset   = "\033[0m"
+        Bold    = "\033[1m"
+        Red     = "\033[31m"
+        Green   = "\033[32m"
+        Yellow  = "\033[33m"
+        Blue    = "\033[34m"
+        Magenta = "\033[35m"
+        Cyan    = "\033[36m"
+        Gray    = "\033[90m"
+)
+
+// Symbols
+const (
+        IconBeer     = "🍺"
+        IconPackage  = "📦"
+        IconSearch   = "🔍"
+        IconInfo     = "ℹ️"
+        IconSuccess  = "✅"
+        IconError    = "❌"
+        IconWarning  = "⚠️"
+        IconDownload = "⬇️"
+        IconInstall  = "⚙️"
+        IconLink     = "🔗"
+        IconUpdate   = "🔄"
+        IconTrash    = "🗑️"
+        IconSparkles = "✨"
+        IconRocket   = "🚀"
+)
+
+// FormatDuration formats a duration in a human-readable way
+func FormatDuration(d time.Duration) string <span class="cov8" title="1">{
+        if d &lt; time.Second </span><span class="cov8" title="1">{
+                return "&lt; 1s"
+        }</span>
+        <span class="cov8" title="1">if d &lt; time.Minute </span><span class="cov8" title="1">{
+                return fmt.Sprintf("%ds", int(d.Seconds()))
+        }</span>
+        <span class="cov8" title="1">if d &lt; time.Hour </span><span class="cov8" title="1">{
+                return fmt.Sprintf("%dm %ds", int(d.Minutes()), int(d.Seconds())%60)
+        }</span>
+        <span class="cov8" title="1">return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)</span>
+}
+
+// FormatSize formats bytes in a human-readable way
+func FormatSize(bytes int64) string <span class="cov8" title="1">{
+        const unit = 1024
+        if bytes &lt; unit </span><span class="cov8" title="1">{
+                return fmt.Sprintf("%d B", bytes)
+        }</span>
+        <span class="cov8" title="1">div, exp := int64(unit), 0
+        for n := bytes / unit; n &gt;= unit; n /= unit </span><span class="cov8" title="1">{
+                div *= unit
+                exp++
+        }</span>
+        <span class="cov8" title="1">return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])</span>
+}
+
+// PrintFormulaInfo displays detailed formula information
+func PrintFormulaInfo(formula *homebrew.Formula) <span class="cov8" title="1">{
+        fmt.Printf("\n%s %s%s%s\n", IconInfo, Bold, formula.Name, Reset)
+
+        if formula.Desc != "" </span><span class="cov8" title="1">{
+                fmt.Printf("  %s\n", formula.Desc)
+        }</span>
+
+        <span class="cov8" title="1">fmt.Printf("\n  %sHomepage:%s %s\n", Cyan, Reset, formula.Homepage)
+
+        if formula.Versions.Stable != "" </span><span class="cov8" title="1">{
+                fmt.Printf("  %sVersion:%s  %s\n", Cyan, Reset, formula.Versions.Stable)
+        }</span>
+
+        <span class="cov8" title="1">if formula.License != "" </span><span class="cov8" title="1">{
+                fmt.Printf("  %sLicense:%s  %s\n", Cyan, Reset, formula.License)
+        }</span>
+
+        // Installation status
+        <span class="cov8" title="1">if len(formula.Installed) &gt; 0 </span><span class="cov8" title="1">{
+                latest := formula.Installed[len(formula.Installed)-1]
+                installTime := time.Unix(latest.Time, 0)
+                fmt.Printf("\n  %s%sInstalled:%s %s %s(on %s)%s\n",
+                        Green, Bold, Reset, latest.Version, Gray, installTime.Format("Jan 02, 2006"), Reset)
+
+                if latest.PouredFromBottle </span><span class="cov8" title="1">{
+                        fmt.Printf("  %sInstalled from:%s bottle\n", Cyan, Reset)
+                }</span> else<span class="cov8" title="1"> {
+                        fmt.Printf("  %sInstalled from:%s source\n", Cyan, Reset)
+                }</span>
+        } else<span class="cov8" title="1"> {
+                fmt.Printf("\n  %sNot installed%s\n", Yellow, Reset)
+        }</span>
+
+        // Dependencies
+        <span class="cov8" title="1">if len(formula.Dependencies) &gt; 0 </span><span class="cov8" title="1">{
+                fmt.Printf("\n  %sDependencies:%s\n", Cyan, Reset)
+                for _, dep := range formula.Dependencies </span><span class="cov8" title="1">{
+                        fmt.Printf("    • %s\n", dep)
+                }</span>
+        }
+
+        // Build dependencies
+        <span class="cov8" title="1">if len(formula.BuildDependencies) &gt; 0 </span><span class="cov8" title="1">{
+                fmt.Printf("\n  %sBuild Dependencies:%s\n", Cyan, Reset)
+                for _, dep := range formula.BuildDependencies </span><span class="cov8" title="1">{
+                        fmt.Printf("    • %s\n", dep)
+                }</span>
+        }
+
+        // Caveats
+        <span class="cov8" title="1">if formula.Caveats != "" </span><span class="cov8" title="1">{
+                fmt.Printf("\n  %s%sℹ️  Caveats:%s\n", Yellow, Bold, Reset)
+                caveats := strings.TrimSpace(formula.Caveats)
+                for _, line := range strings.Split(caveats, "\n") </span><span class="cov8" title="1">{
+                        fmt.Printf("  %s\n", line)
+                }</span>
+        }
+
+        <span class="cov8" title="1">fmt.Println()</span>
+}
+
+// PrintSearchResults displays search results
+func PrintSearchResults(formulae, casks []string) <span class="cov8" title="1">{
+        if len(formulae) &gt; 0 </span><span class="cov8" title="1">{
+                fmt.Printf("\n%s %s%sFormulae%s\n", IconPackage, Bold, Green, Reset)
+                for _, f := range formulae </span><span class="cov8" title="1">{
+                        fmt.Printf("  • %s\n", f)
+                }</span>
+        }
+
+        <span class="cov8" title="1">if len(casks) &gt; 0 </span><span class="cov8" title="1">{
+                fmt.Printf("\n%s %s%sCasks%s\n", IconPackage, Bold, Cyan, Reset)
+                for _, c := range casks </span><span class="cov8" title="1">{
+                        fmt.Printf("  • %s\n", c)
+                }</span>
+        }
+
+        <span class="cov8" title="1">total := len(formulae) + len(casks)
+        if total == 0 </span><span class="cov8" title="1">{
+                fmt.Printf("\n%s No results found\n", IconWarning)
+        }</span> else<span class="cov8" title="1"> {
+                fmt.Printf("\n%sTotal:%s %d results\n", Gray, Reset, total)
+        }</span>
+        <span class="cov8" title="1">fmt.Println()</span>
+}
+
+// PrintInstalledList displays installed packages
+func PrintInstalledList(formulae []homebrew.Formula) <span class="cov8" title="1">{
+        if len(formulae) == 0 </span><span class="cov8" title="1">{
+                fmt.Printf("\n%s No packages installed\n\n", IconWarning)
+                return
+        }</span>
+
+        <span class="cov8" title="1">fmt.Printf("\n%s %s%sInstalled Packages%s (%d total)\n\n", IconPackage, Bold, Green, Reset, len(formulae))
+
+        for _, f := range formulae </span><span class="cov8" title="1">{
+                version := ""
+                if len(f.Installed) &gt; 0 </span><span class="cov8" title="1">{
+                        version = f.Installed[len(f.Installed)-1].Version
+                }</span>
+
+                <span class="cov8" title="1">statusIcon := Green + "●" + Reset
+                if f.Outdated </span><span class="cov8" title="1">{
+                        statusIcon = Yellow + "●" + Reset
+                }</span>
+                <span class="cov8" title="1">if f.Pinned </span><span class="cov8" title="1">{
+                        statusIcon = Blue + "📌" + Reset
+                }</span>
+
+                <span class="cov8" title="1">fmt.Printf("  %s %s%-30s%s %s%s%s", statusIcon, Cyan, f.Name, Reset, Gray, version, Reset)
+
+                if f.Desc != "" </span><span class="cov8" title="1">{
+                        desc := f.Desc
+                        if len(desc) &gt; 50 </span><span class="cov8" title="1">{
+                                desc = desc[:47] + "..."
+                        }</span>
+                        <span class="cov8" title="1">fmt.Printf(" - %s", desc)</span>
+                }
+                <span class="cov8" title="1">fmt.Println()</span>
+        }
+
+        <span class="cov8" title="1">fmt.Println()</span>
+}
+
+// PrintInstallProgress displays installation progress
+func PrintInstallProgress(status homebrew.InstallationStatus) <span class="cov8" title="1">{
+        elapsed := time.Since(status.StartTime)
+
+        icon := IconInstall
+        color := Cyan
+
+        switch status.Stage </span>{
+        case "downloading":<span class="cov8" title="1">
+                icon = IconDownload
+                color = Blue</span>
+        case "installing":<span class="cov8" title="1">
+                icon = IconInstall
+                color = Yellow</span>
+        case "linking":<span class="cov0" title="0">
+                icon = IconLink
+                color = Magenta</span>
+        case "completed":<span class="cov8" title="1">
+                icon = IconSuccess
+                color = Green</span>
+        case "failed":<span class="cov0" title="0">
+                icon = IconError
+                color = Red</span>
+        }
+
+        <span class="cov8" title="1">fmt.Printf("\r%s %s%s%s %s%-20s%s [%s]",
+                icon, color, status.Formula, Reset, Gray, status.Stage, Reset, FormatDuration(elapsed))
+
+        if status.Error != nil </span><span class="cov0" title="0">{
+                fmt.Printf(" - %s%s%s", Red, status.Error, Reset)
+        }</span>
+}
+
+// PrintSuccess displays a success message
+func PrintSuccess(message string) <span class="cov8" title="1">{
+        fmt.Printf("%s %s%s%s\n", IconSuccess, Green, message, Reset)
+}</span>
+
+// PrintError displays an error message
+func PrintError(message string) <span class="cov8" title="1">{
+        fmt.Printf("%s %s%s%s\n", IconError, Red, message, Reset)
+}</span>
+
+// PrintWarning displays a warning message
+func PrintWarning(message string) <span class="cov8" title="1">{
+        fmt.Printf("%s %s%s%s\n", IconWarning, Yellow, message, Reset)
+}</span>
+
+// PrintInfo displays an info message
+func PrintInfo(message string) <span class="cov8" title="1">{
+        fmt.Printf("%s %s\n", IconInfo, message)
+}</span>
+
+// ProgressBar creates a simple progress bar
+func ProgressBar(current, total int, width int) string <span class="cov8" title="1">{
+        if total == 0 </span><span class="cov8" title="1">{
+                return strings.Repeat("━", width)
+        }</span>
+
+        <span class="cov8" title="1">percent := float64(current) / float64(total)
+        filled := int(percent * float64(width))
+
+        bar := strings.Repeat("━", filled)
+        empty := strings.Repeat("╌", width-filled)
+
+        return fmt.Sprintf("%s%s%s%s %3.0f%%", Green, bar, Gray, empty, percent*100)</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
