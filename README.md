@@ -4,6 +4,9 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/ofkm/goobrew)](https://goreportcard.com/report/github.com/ofkm/goobrew)
 [![License](https://img.shields.io/github/license/ofkm/goobrew)](LICENSE)
 
+> [!NOTE]
+> This is a WIP eventually want to make this a standlone brew client instead of a wrapper.
+
 A fast and UX-friendly wrapper for Homebrew written in Go.
 
 ## Features

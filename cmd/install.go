@@ -12,6 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// installCmd represents the install command.
+// It installs one or more packages using Homebrew, displaying real-time progress
+// information including download, installation, and linking stages. The command
+// accepts multiple package names and processes them sequentially.
 var installCmd = &cobra.Command{
 	Use:     "install [package...]",
 	Aliases: []string{"i"},

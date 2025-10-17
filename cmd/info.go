@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// infoCmd represents the info command.
+// It displays detailed information about a specific package including version,
+// dependencies, installation status, and any caveats. The information is
+// retrieved from Homebrew's JSON API and formatted for easy reading.
 var infoCmd = &cobra.Command{
 	Use:   "info [package]",
 	Short: "Display package information",

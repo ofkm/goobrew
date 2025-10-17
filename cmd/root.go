@@ -1,3 +1,4 @@
+// Package cmd implements the command-line interface for goobrew.
 package cmd
 
 import (
@@ -13,12 +14,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	client  *homebrew.Client
-	verbose bool
-	debug   bool
-)
+// client is the Homebrew API client used across all commands.
+var client *homebrew.Client
 
+// verbose enables verbose output when set via the --verbose flag.
+var verbose bool
+
+// debug enables debug logging when set via the --debug flag.
+var debug bool
+
+// rootCmd represents the root command of goobrew.
 var rootCmd = &cobra.Command{
 	Use:   "goobrew",
 	Short: "A fast and beautiful wrapper for Homebrew",
@@ -59,6 +64,9 @@ beautiful, user-friendly interface.`,
 	},
 }
 
+// Execute runs the root command and all registered subcommands.
+// This is the main entry point for command execution. It returns an error
+// if command execution fails.
 func Execute() error {
 	return rootCmd.Execute()
 }

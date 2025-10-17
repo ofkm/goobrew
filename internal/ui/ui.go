@@ -1,3 +1,6 @@
+// Package ui provides user interface utilities for goobrew.
+// It includes color constants, emoji icons, and formatting functions for
+// displaying information in a beautiful and user-friendly way.
 package ui
 
 import (
@@ -8,38 +11,40 @@ import (
 	"github.com/ofkm/goobrew/internal/homebrew"
 )
 
-// Colors
+// Colors are ANSI escape codes for terminal text formatting.
 const (
-	Reset   = "\033[0m"
-	Bold    = "\033[1m"
-	Red     = "\033[31m"
-	Green   = "\033[32m"
-	Yellow  = "\033[33m"
-	Blue    = "\033[34m"
-	Magenta = "\033[35m"
-	Cyan    = "\033[36m"
-	Gray    = "\033[90m"
+	Reset   = "\033[0m"   // Reset resets all formatting
+	Bold    = "\033[1m"   // Bold makes text bold
+	Red     = "\033[31m"  // Red colors text red
+	Green   = "\033[32m"  // Green colors text green
+	Yellow  = "\033[33m"  // Yellow colors text yellow
+	Blue    = "\033[34m"  // Blue colors text blue
+	Magenta = "\033[35m"  // Magenta colors text magenta
+	Cyan    = "\033[36m"  // Cyan colors text cyan
+	Gray    = "\033[90m"  // Gray colors text gray
 )
 
-// Symbols
+// Symbols are emoji icons used throughout the UI.
 const (
-	IconBeer     = "🍺"
-	IconPackage  = "📦"
-	IconSearch   = "🔍"
-	IconInfo     = "ℹ️"
-	IconSuccess  = "✅"
-	IconError    = "❌"
-	IconWarning  = "⚠️"
-	IconDownload = "⬇️"
-	IconInstall  = "⚙️"
-	IconLink     = "🔗"
-	IconUpdate   = "🔄"
-	IconTrash    = "🗑️"
-	IconSparkles = "✨"
-	IconRocket   = "🚀"
+	IconBeer     = "🍺" // IconBeer represents Homebrew
+	IconPackage  = "📦" // IconPackage represents packages
+	IconSearch   = "🔍" // IconSearch represents search operations
+	IconInfo     = "ℹ️"  // IconInfo represents information
+	IconSuccess  = "✅" // IconSuccess represents successful operations
+	IconError    = "❌" // IconError represents errors
+	IconWarning  = "⚠️"  // IconWarning represents warnings
+	IconDownload = "⬇️"  // IconDownload represents downloads
+	IconInstall  = "⚙️"  // IconInstall represents installation
+	IconLink     = "🔗" // IconLink represents linking
+	IconUpdate   = "🔄" // IconUpdate represents updates
+	IconTrash    = "🗑️"  // IconTrash represents uninstallation
+	IconSparkles = "✨" // IconSparkles represents completion
+	IconRocket   = "🚀" // IconRocket represents upgrades
 )
 
-// FormatDuration formats a duration in a human-readable way
+// FormatDuration formats a time.Duration into a human-readable string.
+// It returns durations less than a second as "< 1s", seconds as "Xs",
+// minutes as "Xm Ys", and hours as "Xh Ym".
 func FormatDuration(d time.Duration) string {
 	if d < time.Second {
 		return "< 1s"
@@ -53,7 +58,10 @@ func FormatDuration(d time.Duration) string {
 	return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)
 }
 
-// FormatSize formats bytes in a human-readable way
+// FormatSize formats a byte count into a human-readable string using
+// binary units (KiB, MiB, GiB, etc.). Values less than 1024 bytes are
+// displayed as bytes, larger values are automatically scaled to the
+// appropriate unit (KB, MB, GB, etc.).
 func FormatSize(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
@@ -67,7 +75,10 @@ func FormatSize(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// PrintFormulaInfo displays detailed formula information
+// PrintFormulaInfo displays detailed information about a Homebrew formula.
+// It prints the formula name, description, homepage, version, license,
+// installation status, dependencies, build dependencies, and any caveats.
+// All output is formatted with colors and icons for readability.
 func PrintFormulaInfo(formula *homebrew.Formula) {
 	fmt.Printf("\n%s %s%s%s\n", IconInfo, Bold, formula.Name, Reset)
 
@@ -129,7 +140,10 @@ func PrintFormulaInfo(formula *homebrew.Formula) {
 	fmt.Println()
 }
 
-// PrintSearchResults displays search results
+// PrintSearchResults displays search results for formulae and casks.
+// It separates formulae and casks into distinct sections with appropriate
+// icons and colors. If no results are found, it displays a warning message.
+// The function also shows the total count of matching packages.
 func PrintSearchResults(formulae, casks []string) {
 	if len(formulae) > 0 {
 		fmt.Printf("\n%s %s%sFormulae%s\n", IconPackage, Bold, Green, Reset)
@@ -154,7 +168,10 @@ func PrintSearchResults(formulae, casks []string) {
 	fmt.Println()
 }
 
-// PrintInstalledList displays installed packages
+// PrintInstalledList displays a list of all installed packages.
+// Each package is shown with its name, version, and a status indicator
+// (green for up-to-date, yellow for outdated, blue for pinned).
+// If no packages are installed, it displays a warning message.
 func PrintInstalledList(formulae []homebrew.Formula) {
 	if len(formulae) == 0 {
 		fmt.Printf("\n%s No packages installed\n\n", IconWarning)
@@ -192,7 +209,11 @@ func PrintInstalledList(formulae []homebrew.Formula) {
 	fmt.Println()
 }
 
-// PrintInstallProgress displays installation progress
+// PrintInstallProgress displays real-time installation progress.
+// It shows the package name, current installation stage (downloading,
+// installing, linking, completed, or failed), elapsed time, and any
+// errors that occurred. The output uses different icons and colors
+// based on the installation stage.
 func PrintInstallProgress(status homebrew.InstallationStatus) {
 	elapsed := time.Since(status.StartTime)
 
@@ -225,27 +246,30 @@ func PrintInstallProgress(status homebrew.InstallationStatus) {
 	}
 }
 
-// PrintSuccess displays a success message
+// PrintSuccess displays a success message with a checkmark icon and green color.
 func PrintSuccess(message string) {
 	fmt.Printf("%s %s%s%s\n", IconSuccess, Green, message, Reset)
 }
 
-// PrintError displays an error message
+// PrintError displays an error message with an error icon and red color.
 func PrintError(message string) {
 	fmt.Printf("%s %s%s%s\n", IconError, Red, message, Reset)
 }
 
-// PrintWarning displays a warning message
+// PrintWarning displays a warning message with a warning icon and yellow color.
 func PrintWarning(message string) {
 	fmt.Printf("%s %s%s%s\n", IconWarning, Yellow, message, Reset)
 }
 
-// PrintInfo displays an info message
+// PrintInfo displays an informational message with an info icon.
 func PrintInfo(message string) {
 	fmt.Printf("%s %s\n", IconInfo, message)
 }
 
-// ProgressBar creates a simple progress bar
+// ProgressBar creates a visual progress bar string.
+// It takes the current progress value, total value, and desired width in characters.
+// Returns a colored progress bar with percentage. If total is 0, returns a full bar.
+// The filled portion is displayed in green and the empty portion in gray.
 func ProgressBar(current, total int, width int) string {
 	if total == 0 {
 		return strings.Repeat("━", width)

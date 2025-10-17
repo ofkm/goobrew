@@ -11,6 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// updateCmd represents the update command.
+// It updates Homebrew itself and refreshes the list of available formulae and casks
+// from GitHub. This command should be run periodically to ensure access to the
+// latest package information.
 var updateCmd = &cobra.Command{
 	Use:     "update",
 	Aliases: []string{"up"},

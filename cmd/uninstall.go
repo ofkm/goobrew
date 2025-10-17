@@ -12,6 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// uninstallCmd represents the uninstall command.
+// It removes one or more packages from the system using Homebrew's uninstall
+// functionality. The command accepts multiple package names and displays
+// progress and timing information during the uninstallation process.
 var uninstallCmd = &cobra.Command{
 	Use:     "uninstall [package...]",
 	Aliases: []string{"remove", "rm"},

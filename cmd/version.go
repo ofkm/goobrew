@@ -7,6 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// versionCmd represents the version command.
+// It displays the version information for goobrew including the semantic version,
+// git commit hash, and build time.
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",

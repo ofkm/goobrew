@@ -1,3 +1,4 @@
+// Package homebrew provides a client for interacting with Homebrew and its JSON API.
 package homebrew
 
 import (
@@ -16,13 +17,20 @@ import (
 )
 
 const (
-	HomebrewAPIBase     = "https://formulae.brew.sh/api"
+	// HomebrewAPIBase is the base URL for Homebrew's JSON API.
+	HomebrewAPIBase = "https://formulae.brew.sh/api"
+	// HomebrewAPIFormulae is the URL for the complete list of formulae.
 	HomebrewAPIFormulae = "https://formulae.brew.sh/api/formula.json"
-	HomebrewAPICasks    = "https://formulae.brew.sh/api/cask.json"
-	cacheExpiry         = 1 * time.Hour
-	installedCacheKey   = "_installed_formulae"
+	// HomebrewAPICasks is the URL for the complete list of casks.
+	HomebrewAPICasks = "https://formulae.brew.sh/api/cask.json"
+	// cacheExpiry defines how long cached data remains valid.
+	cacheExpiry = 1 * time.Hour
+	// installedCacheKey is the cache key for installed formulae.
+	installedCacheKey = "_installed_formulae"
 )
 
+// Client provides methods for interacting with Homebrew and its JSON API.
+// It manages HTTP requests, caching, and execution of brew commands.
 type Client struct {
 	httpClient     *http.Client
 	cache          sync.Map
@@ -33,25 +41,29 @@ type Client struct {
 	cacheTimestamp time.Time
 }
 
-// FormulaListItem represents a minimal formula entry for listing/searching
+// FormulaListItem represents a minimal formula entry for listing and searching.
 type FormulaListItem struct {
-	Name string `json:"name"`
-	Desc string `json:"desc"`
+	Name string `json:"name"` // Name is the formula name
+	Desc string `json:"desc"` // Desc is the formula description
 }
 
-// CaskListItem represents a minimal cask entry for listing/searching
+// CaskListItem represents a minimal cask entry for listing and searching.
 type CaskListItem struct {
-	Token string   `json:"token"`
-	Name  []string `json:"name"`
-	Desc  string   `json:"desc"`
+	Token string   `json:"token"` // Token is the cask identifier
+	Name  []string `json:"name"`  // Name contains the display names for the cask
+	Desc  string   `json:"desc"`  // Desc is the cask description
 }
 
+// cacheEntry holds cached data with a timestamp for expiration.
 type cacheEntry struct {
 	data      interface{}
 	timestamp time.Time
 }
 
-// NewClient creates a new Homebrew client
+// NewClient creates and initializes a new Homebrew client.
+// It verifies that brew is installed and available in PATH, then
+// pre-loads the formulae and casks list in the background for faster searches.
+// Returns an error if Homebrew is not installed.
 func NewClient() (*Client, error) {
 	brewPath, err := exec.LookPath("brew")
 	if err != nil {
@@ -187,7 +199,11 @@ func (c *Client) fetchCasksList(ctx context.Context) ([]CaskListItem, error) {
 	return casks, nil
 }
 
-// GetFormula retrieves information about a specific formula from the web API
+// GetFormula retrieves detailed information about a specific formula or cask.
+// It first checks the cache, then queries Homebrew's JSON API. If the package
+// is not found as a formula, it tries to fetch it as a cask. Local installation
+// information is merged into the result if the package is installed.
+// Returns an error if the package is not found as either a formula or cask.
 func (c *Client) GetFormula(ctx context.Context, name string) (*Formula, error) {
 	// Check cache first
 	if cached, ok := c.getFromCache(name); ok {
@@ -245,7 +261,10 @@ func (c *Client) getLocalInstallInfo(ctx context.Context, name string) ([]Instal
 	return nil, nil
 }
 
-// GetInstalledFormulae retrieves all installed formulae
+// GetInstalledFormulae retrieves information about all currently installed packages.
+// It executes `brew info --json=v1 --installed` to get detailed information for
+// each installed formula including version, dependencies, and installation metadata.
+// Returns an empty slice if no packages are installed, or an error if the command fails.
 func (c *Client) GetInstalledFormulae(ctx context.Context) ([]Formula, error) {
 	//nolint:gosec // brewPath is validated at client creation
 	cmd := exec.CommandContext(ctx, c.brewPath, "info", "--json=v1", "--installed")
@@ -262,7 +281,11 @@ func (c *Client) GetInstalledFormulae(ctx context.Context) ([]Formula, error) {
 	return formulae, nil
 }
 
-// Search searches for formulae and casks using cached API data with parallel processing
+// Search performs a case-insensitive search for packages matching the given term.
+// It searches both formulae and casks in parallel using cached API data for performance.
+// The search matches against package names and descriptions. If the cache is expired or
+// empty, it triggers a reload in the background. Returns two slices: matching formulae
+// names and matching cask names, plus any error encountered.
 func (c *Client) Search(ctx context.Context, term string) ([]string, []string, error) {
 	c.cacheMutex.RLock()
 	formulaeCache := c.formulaeCache
@@ -334,7 +357,11 @@ func (c *Client) Search(ctx context.Context, term string) ([]string, []string, e
 	return formulaeResults, casksResults, nil
 }
 
-// Install installs one or more packages using brew command
+// Install installs one or more packages and reports progress via the status channel.
+// For each package, it executes `brew install` and monitors the output to provide
+// real-time status updates (downloading, installing, linking, completed, or failed).
+// The status channel receives InstallationStatus updates throughout the process and
+// is not closed by this function. Returns an error if the installation fails.
 func (c *Client) Install(ctx context.Context, packages []string, statusChan chan<- InstallationStatus) error {
 	for _, pkg := range packages {
 		startTime := time.Now()
@@ -405,7 +432,9 @@ func (c *Client) Install(ctx context.Context, packages []string, statusChan chan
 	return nil
 }
 
-// Uninstall removes one or more packages
+// Uninstall removes one or more packages from the system.
+// It executes `brew uninstall` with the provided package names and streams
+// the output to stdout and stderr. Returns an error if uninstallation fails.
 func (c *Client) Uninstall(ctx context.Context, packages []string) error {
 	args := append([]string{"uninstall"}, packages...)
 	//nolint:gosec // brewPath is validated at client creation, args are package names
@@ -415,7 +444,10 @@ func (c *Client) Uninstall(ctx context.Context, packages []string) error {
 	return cmd.Run()
 }
 
-// Update updates Homebrew
+// Update updates Homebrew itself and refreshes the formulae database.
+// It executes `brew update` which fetches the newest version of Homebrew
+// and all formulae from GitHub. Output is streamed to stdout and stderr.
+// Returns an error if the update fails.
 func (c *Client) Update(ctx context.Context) error {
 	//nolint:gosec // brewPath is validated at client creation
 	cmd := exec.CommandContext(ctx, c.brewPath, "update")
@@ -424,7 +456,10 @@ func (c *Client) Update(ctx context.Context) error {
 	return cmd.Run()
 }
 
-// Upgrade upgrades packages
+// Upgrade upgrades one or more installed packages to their latest versions.
+// If packages is empty, all installed packages will be upgraded. It executes
+// `brew upgrade` with the specified package names (if any) and streams output
+// to stdout and stderr. Returns an error if the upgrade fails.
 func (c *Client) Upgrade(ctx context.Context, packages []string) error {
 	args := append([]string{"upgrade"}, packages...)
 	//nolint:gosec // brewPath is validated at client creation, args are package names
@@ -533,7 +568,10 @@ func (c *Client) parseInstallOutput(pkg, line string, startTime time.Time) *Inst
 	return status
 }
 
-// ExecuteCommand executes a raw brew command (fallback)
+// ExecuteCommand executes an arbitrary brew command with the provided arguments.
+// This is a fallback for commands that don't have dedicated wrapper methods.
+// It passes stdin, stdout, and stderr directly to the brew process, allowing
+// interactive commands to work properly. Returns an error if the command fails.
 func (c *Client) ExecuteCommand(ctx context.Context, args []string) error {
 	//nolint:gosec // brewPath is validated at client creation, args are user commands
 	cmd := exec.CommandContext(ctx, c.brewPath, args...)

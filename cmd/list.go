@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// listCmd represents the list command.
+// It retrieves and displays all installed Homebrew packages with detailed information
+// including version numbers, descriptions, and status indicators (outdated, pinned).
+// The list is formatted with colors and icons for better readability.
 var listCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},

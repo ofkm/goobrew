@@ -10,6 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// searchCmd represents the search command.
+// It searches for packages (both formulae and casks) in Homebrew repositories
+// by matching the search term against package names and descriptions.
+// The search is case-insensitive and displays results with beautiful formatting.
 var searchCmd = &cobra.Command{
 	Use:     "search [term]",
 	Aliases: []string{"s"},

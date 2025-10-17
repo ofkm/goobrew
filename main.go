@@ -1,3 +1,4 @@
+// Package main is the entry point for goobrew, a fast and beautiful wrapper for Homebrew.
 package main
 
 import (

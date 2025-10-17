@@ -11,6 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// upgradeCmd represents the upgrade command.
+// It upgrades installed packages to their latest versions. If no package names
+// are specified, all outdated packages will be upgraded. If package names are
+// provided, only those packages will be upgraded.
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade [package...]",
 	Short: "Upgrade packages",
