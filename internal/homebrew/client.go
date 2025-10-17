@@ -337,10 +337,11 @@ func (c *Client) Search(ctx context.Context, term string) ([]string, []string, e
 // Install installs one or more packages using brew command
 func (c *Client) Install(ctx context.Context, packages []string, statusChan chan<- InstallationStatus) error {
 	for _, pkg := range packages {
+		startTime := time.Now()
 		status := InstallationStatus{
 			Formula:   pkg,
 			Stage:     "starting",
-			StartTime: time.Now(),
+			StartTime: startTime,
 		}
 		statusChan <- status
 
@@ -350,40 +351,55 @@ func (c *Client) Install(ctx context.Context, packages []string, statusChan chan
 		// Create pipes for stdout and stderr
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			status.Stage = "failed"
-			status.Error = err
-			statusChan <- status
+			statusChan <- InstallationStatus{
+				Formula:   pkg,
+				Stage:     "failed",
+				StartTime: startTime,
+				Error:     err,
+			}
 			continue
 		}
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
-			status.Stage = "failed"
-			status.Error = err
-			statusChan <- status
+			statusChan <- InstallationStatus{
+				Formula:   pkg,
+				Stage:     "failed",
+				StartTime: startTime,
+				Error:     err,
+			}
 			continue
 		}
 
 		if err := cmd.Start(); err != nil {
-			status.Stage = "failed"
-			status.Error = err
-			statusChan <- status
+			statusChan <- InstallationStatus{
+				Formula:   pkg,
+				Stage:     "failed",
+				StartTime: startTime,
+				Error:     err,
+			}
 			continue
 		}
 
-		// Monitor output
-		go c.monitorInstallation(stdout, stderr, pkg, statusChan)
+		// Monitor output - pass startTime so monitor can set it on status updates
+		go c.monitorInstallation(stdout, stderr, pkg, startTime, statusChan)
 
 		if err := cmd.Wait(); err != nil {
-			status.Stage = "failed"
-			status.Error = err
-			statusChan <- status
+			statusChan <- InstallationStatus{
+				Formula:   pkg,
+				Stage:     "failed",
+				StartTime: startTime,
+				Error:     err,
+			}
 			continue
 		}
 
-		status.Stage = "completed"
-		status.Progress = 100
-		statusChan <- status
+		statusChan <- InstallationStatus{
+			Formula:   pkg,
+			Stage:     "completed",
+			Progress:  100,
+			StartTime: startTime,
+		}
 	}
 
 	return nil
@@ -464,14 +480,14 @@ func (c *Client) getFromCache(key string) (interface{}, bool) {
 	return nil, false
 }
 
-func (c *Client) monitorInstallation(stdout, stderr io.Reader, pkg string, statusChan chan<- InstallationStatus) {
+func (c *Client) monitorInstallation(stdout, stderr io.Reader, pkg string, startTime time.Time, statusChan chan<- InstallationStatus) {
 	scanner := func(r io.Reader) {
 		buf := make([]byte, 1024)
 		for {
 			n, err := r.Read(buf)
 			if n > 0 {
 				line := string(buf[:n])
-				status := c.parseInstallOutput(pkg, line)
+				status := c.parseInstallOutput(pkg, line, startTime)
 				if status != nil {
 					statusChan <- *status
 				}
@@ -486,11 +502,12 @@ func (c *Client) monitorInstallation(stdout, stderr io.Reader, pkg string, statu
 	go scanner(stderr)
 }
 
-func (c *Client) parseInstallOutput(pkg, line string) *InstallationStatus {
+func (c *Client) parseInstallOutput(pkg, line string, startTime time.Time) *InstallationStatus {
 	lower := strings.ToLower(line)
 
 	status := &InstallationStatus{
-		Formula: pkg,
+		Formula:   pkg,
+		StartTime: startTime,
 	}
 
 	switch {

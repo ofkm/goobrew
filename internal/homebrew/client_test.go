@@ -337,9 +337,11 @@ func TestParseInstallOutput(t *testing.T) {
 		{"No match", "Some other output", "", 0},
 	}
 
+	startTime := time.Now()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status := client.parseInstallOutput("git", tt.line)
+			status := client.parseInstallOutput("git", tt.line, startTime)
 
 			if tt.expectedStage == "" {
 				if status != nil {
@@ -357,6 +359,9 @@ func TestParseInstallOutput(t *testing.T) {
 				}
 				if status.Formula != "git" {
 					t.Errorf("Expected formula 'git', got '%s'", status.Formula)
+				}
+				if status.StartTime.IsZero() {
+					t.Error("Expected StartTime to be set")
 				}
 			}
 		})
@@ -553,7 +558,8 @@ func TestMonitorInstallation(t *testing.T) {
 	statusChan := make(chan InstallationStatus, 10)
 
 	// Start monitoring
-	client.monitorInstallation(stdout, stderr, "git", statusChan)
+	startTime := time.Now()
+	client.monitorInstallation(stdout, stderr, "git", startTime, statusChan)
 
 	// Collect statuses with timeout to avoid hanging
 	statusCount := 0
