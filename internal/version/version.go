@@ -3,7 +3,7 @@ package version
 // Version information set via ldflags during build
 var (
 	// Version is the semantic version
-	Version = "0.1.1"
+	Version = "0.1.2"
 	// Commit is the git commit hash
 	Commit = "none"
 	// BuildTime is when the binary was built
